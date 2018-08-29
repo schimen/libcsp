@@ -468,6 +468,15 @@ int csp_rdp_check_ack(csp_conn_t * conn) {
 
 }
 
+static inline bool csp_rdp_is_conn_ready_for_tx(csp_conn_t * conn)
+{
+	// Check Tx window (messages waiting for acks)
+	if (csp_rdp_seq_after(conn->rdp.snd_nxt, conn->rdp.snd_una + conn->rdp.window_size - 1)) {
+		return false;
+	}
+	return true;
+}
+
 /**
  * This function must be called with regular intervals for the
  * RDP protocol to work as expected. This takes care of closing
@@ -485,7 +494,8 @@ void csp_rdp_check_timeouts(csp_conn_t * conn) {
 	uint32_t time_now = csp_get_ms();
 	if (conn->socket != NULL) {
 		if (csp_rdp_time_after(time_now, conn->timestamp + conn->rdp.conn_timeout)) {
-			csp_log_warn("Found a lost connection, closing now");
+			csp_log_warn("RDP: Found a lost connection %p (now: %u, ts: %u, to: %u), closing now",
+                                     conn, time_now, conn->timestamp, conn->rdp.conn_timeout);
 			csp_close(conn);
 			return;
 		}
@@ -555,16 +565,14 @@ void csp_rdp_check_timeouts(csp_conn_t * conn) {
 	 */
 
 	if (conn->rdp.delayed_acks) {
-	  csp_rdp_check_ack(conn);
+		csp_rdp_check_ack(conn);
 	}
 
-
-	/* Wake user task if TX queue is ready for more data */
-	if (conn->rdp.state == RDP_OPEN)
-		if (csp_queue_size(conn->rdp.tx_queue) < (int)conn->rdp.window_size)
-			if (csp_rdp_seq_before(conn->rdp.snd_nxt - conn->rdp.snd_una, conn->rdp.window_size * 2))
-				csp_bin_sem_post(&conn->rdp.tx_wait);
-
+	/* Wake user task if connection is open and additional Tx can be done */
+	if ((conn->rdp.state == RDP_OPEN) && csp_rdp_is_conn_ready_for_tx(conn)) {
+		csp_log_protocol("RDP %p: Wake Tx task (check timeouts)", conn);
+		csp_bin_sem_post(&conn->rdp.tx_wait);
+	}
 }
 
 void csp_rdp_new_packet(csp_conn_t * conn, csp_packet_t * packet) {
@@ -678,6 +686,7 @@ void csp_rdp_new_packet(csp_conn_t * conn, csp_packet_t * packet) {
 			csp_rdp_send_cmp(conn, NULL, RDP_ACK, conn->rdp.snd_nxt, conn->rdp.rcv_cur);
 
 			/* Wake TX task */
+			csp_log_protocol("RDP %p: Wake Tx task (ack)", conn);
 			csp_bin_sem_post(&conn->rdp.tx_wait);
 
 			goto discard_open;
@@ -691,6 +700,7 @@ void csp_rdp_new_packet(csp_conn_t * conn, csp_packet_t * packet) {
 		if (rx_header->ack) {
 			csp_log_error("Half-open connection found, sending RST");
 			csp_rdp_send_cmp(conn, NULL, RDP_RST, conn->rdp.snd_nxt, conn->rdp.rcv_cur);
+			csp_log_protocol("RDP %p: Wake Tx task (rst)", conn);
 			csp_bin_sem_post(&conn->rdp.tx_wait);
 
 			goto discard_open;
@@ -938,12 +948,10 @@ int csp_rdp_send(csp_conn_t * conn, csp_packet_t * packet, uint32_t timeout) {
 		return CSP_ERR_RESET;
 	}
 
-	/* If TX window is full, wait here */
-	while (csp_rdp_seq_after(conn->rdp.snd_nxt, conn->rdp.snd_una + (uint16_t)conn->rdp.window_size)) {
-		csp_log_protocol("RDP: Waiting for window update before sending seq %u", conn->rdp.snd_nxt);
-		csp_bin_sem_wait(&conn->rdp.tx_wait, 0);
+	while ((conn->rdp.state == RDP_OPEN) && (csp_rdp_is_conn_ready_for_tx(conn) == false)) {
+		csp_log_protocol("RDP %p: Waiting for window update before sending seq %u", conn, conn->rdp.snd_nxt);
 		if ((csp_bin_sem_wait(&conn->rdp.tx_wait, conn->rdp.conn_timeout)) != CSP_SEMAPHORE_OK) {
-			csp_log_error("Timeout during send");
+			csp_log_error("RDP %p: Timeout during send", conn);
 			return CSP_ERR_TIMEDOUT;
 		}
 	}
@@ -1036,6 +1044,7 @@ int csp_rdp_close(csp_conn_t * conn) {
 		conn->timestamp = csp_get_ms();
 		csp_rdp_send_cmp(conn, NULL, RDP_ACK | RDP_RST, conn->rdp.snd_nxt, conn->rdp.rcv_cur);
 		csp_log_protocol("RDP Close, sent RST on conn %p", conn);
+		csp_bin_sem_post(&conn->rdp.tx_wait); // wake up any pendng Tx
 		return CSP_ERR_AGAIN;
 	}
 
