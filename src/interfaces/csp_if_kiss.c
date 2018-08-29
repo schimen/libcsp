@@ -39,8 +39,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #define TFESC 					0xDD
 
 #define TNC_DATA				0x00
-#define TNC_SET_HARDWARE		0x06
-#define TNC_RETURN				0xFF
 
 static int kiss_lock_init = 0;
 static csp_bin_sem_handle_t kiss_lock;
@@ -87,8 +85,7 @@ static int csp_kiss_tx(csp_iface_t * interface, csp_packet_t * packet, uint32_t 
 }
 
 /**
- * When a frame is received, decode the kiss-stuff
- * and eventually send it directly to the CSP new packet function.
+ * Decode received data and eventually route the packet.
  */
 void csp_kiss_rx(csp_iface_t * interface, uint8_t * buf, int len, void * pxTaskWoken) {
 
@@ -245,8 +242,12 @@ void csp_kiss_init(csp_iface_t * csp_iface, csp_kiss_handle_t * csp_kiss_handle,
 	csp_kiss_handle->rx_packet = NULL;
 	csp_kiss_handle->rx_mode = KISS_MODE_NOT_STARTED;
 
-	/* Setop other mandatories */
-	csp_iface->mtu = KISS_MTU;
+	/* Set default MTU if not given */
+	if (csp_iface->mtu == 0) {
+		csp_iface->mtu = KISS_MTU;
+	}
+
+	/* Setup other mandatories */
 	csp_iface->nexthop = csp_kiss_tx;
 	csp_iface->name = name;
 

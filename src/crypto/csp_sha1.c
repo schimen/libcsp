@@ -28,7 +28,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include <csp/crypto/csp_sha1.h>
 
-#ifdef CSP_USE_HMAC
+#if defined(CSP_USE_HMAC) || defined(CSP_USE_XTEA)
 
 /* Rotate left macro */
 #define ROL(x,y)	(((x) << (y)) | ((x) >> (32-y)))
@@ -214,4 +214,4 @@ void csp_sha1_memory(const uint8_t * msg, uint32_t len, uint8_t * hash) {
 
 }
 
-#endif // CSP_USE_HMAC
+#endif

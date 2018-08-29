@@ -151,6 +151,7 @@ typedef union {
 #define CSP_SO_CRC32REQ			0x0040 // Require CRC32
 #define CSP_SO_CRC32PROHIB		0x0080 // Prohibit CRC32
 #define CSP_SO_CONN_LESS		0x0100 // Enable Connection Less mode
+#define CSP_SO_INTERNAL_LISTEN          0x1000 // Internal flag: listen called on socket
 
 /** CSP Connect options */
 #define CSP_O_NONE			CSP_SO_NONE // No connection options

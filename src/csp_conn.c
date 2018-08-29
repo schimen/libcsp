@@ -227,9 +227,13 @@ csp_conn_t * csp_conn_allocate(csp_conn_type_t type) {
 		return NULL;
 	}
 
-	conn->state = CONN_OPEN;
+	conn->idin.ext = 0;
+	conn->idout.ext = 0;
 	conn->socket = NULL;
+	conn->timestamp = 0;
 	conn->type = type;
+	conn->state = CONN_OPEN;
+
 	csp_conn_last_given = i;
 	csp_bin_sem_post(&conn_lock);
 
@@ -288,7 +292,7 @@ int csp_close(csp_conn_t * conn) {
 	/* Ensure connection queue is empty */
 	csp_conn_flush_rx_queue(conn);
 
-        if (conn->socket && (conn->type == CONN_SERVER) && (conn->opts & CSP_SO_CONN_LESS)) {
+        if (conn->socket && (conn->type == CONN_SERVER) && (conn->opts & (CSP_SO_CONN_LESS | CSP_SO_INTERNAL_LISTEN))) {
 		csp_queue_remove(conn->socket);
 		conn->socket = NULL;
         }
@@ -324,6 +328,10 @@ csp_conn_t * csp_connect(uint8_t prio, uint8_t dest, uint8_t dport, uint32_t tim
 	outgoing_id.flags = 0;
 
 	/* Set connection options */
+	if (opts & CSP_O_NOCRC32) {
+		opts &= ~CSP_O_CRC32;
+	}
+
 	if (opts & CSP_O_RDP) {
 #ifdef CSP_USE_RDP
 		incoming_id.flags |= CSP_FRDP;
