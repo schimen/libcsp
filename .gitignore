@@ -16,3 +16,5 @@ tags
 .DS_store
 *.pdf
 *.html
+build_*
+install_*
