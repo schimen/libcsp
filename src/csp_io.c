@@ -100,12 +100,19 @@ const char *csp_get_revision(void)
 	return csp_revision;
 }
 
+void csp_set_sport(unsigned char sport_min, unsigned char sport_max) {
+	min_ephemeral_port = sport_min;
+	max_ephemeral_port = sport_max;
+}
+
 int csp_init(unsigned char address) {
 
 	int ret;
 
 	/* Initialize CSP */
 	csp_set_address(address);
+
+	csp_set_sport(CSP_ID_PORT_MAX, 31);
 
 	ret = csp_conn_init();
 	if (ret != CSP_ERR_NONE)
@@ -133,7 +140,7 @@ int csp_init(unsigned char address) {
 }
 
 csp_socket_t * csp_socket(uint32_t opts) {
-	
+
 	/* Validate socket options */
 #ifndef CSP_USE_RDP
 	if (opts & CSP_SO_RDPREQ) {

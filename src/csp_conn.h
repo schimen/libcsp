@@ -52,6 +52,9 @@ typedef enum {
 	RDP_CLOSE_WAIT,
 } csp_rdp_state_t;
 
+	uint8_t min_ephemeral_port;
+	uint8_t max_ephemeral_port;
+
 /** @brief RDP Connection header
  *  @note Do not try to pack this struct, the posix sem handle will stop working */
 typedef struct {
