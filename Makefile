@@ -1,29 +1,33 @@
-# If installing outside libcsp directory, please define LIBCSP_INSTALL_DIR
+# If installing outside libcsp directory, please define LIBCSP_BUILD_DIR
 
-ifeq ($(ARCH),)
-	ARCH=x86
-endif
-PYTHON2=python2
-ROOT=..
+# Default architecture
+ARCH ?= x86
+BUILD=build_$(ARCH)
 
-LIBCSP_DIR=$(ROOT)/libcsp
+PYTHON2 = python2
 
-LIBCSP_CONFIG_COMMON= --enable-crc32  --enable-if-can --enable-can-socketcan=socketcan --with-os=posix --install-csp --with-padding=0 --out=$(LIBCSP_DIR)/build_$(ARCH)
+ROOT = $(abspath ..)
+
+LIBCSP_DIR = $(ROOT)/libcsp
+
+LIBCSP_CONFIG_COMMON =  --enable-crc32  --enable-if-can --enable-can-socketcan=socketcan --with-os=posix --with-padding=0 --install-csp
 
 ifeq ($(ARCH),arm) # ARM toolchain
-	LIBCSP_CONFIG_PLATFORM= --toolchain=arm-linux-gnueabihf-
+	LIBCSP_CONFIG_PLATFORM =  --toolchain=arm-linux-gnueabihf-
 endif
 
-ifeq ($(LIBCSP_INSTALL_DIR),)
-	LIBCSP_CONFIG_INSTALL= --prefix=$(LIBCSP_DIR)/install_$(ARCH) # Default
+# Allow a custom build dir to be specified,
+# along with extra configuration options LIBCSP_CONFIG_EXTRA
+ifeq ($(LIBCSP_BUILD_DIR),)
+	LIBCSP_CONFIG_BUILD =  --out=$(LIBCSP_DIR)/build_$(ARCH) --prefix=$(LIBCSP_DIR)/build_$(ARCH)
+	LIBCSP_BUILD_DIR = $(BUILD)
 else
-	LIBCSP_CONFIG_INSTALL= --prefix=$(LIBCSP_INSTALL_DIR)
+	LIBCSP_CONFIG_BUILD =  --out=$(LIBCSP_BUILD_DIR) --prefix=$(LIBCSP_BUILD_DIR)
 endif
 
-LIBCSP_CONFIG_FULL=$(LIBCSP_CONFIG_COMMON) $(LIBCSP_CONFIG_PLATFORM) $(LIBCSP_CONFIG_INSTALL) $(LIBCSP_CONFIG_EXTRA)
+LIBCSP_CONFIG_FULL = $(LIBCSP_CONFIG_COMMON) $(LIBCSP_CONFIG_PLATFORM) $(LIBCSP_CONFIG_BUILD) $(LIBCSP_CONFIG_EXTRA)
 
-.PHONY: csp_$(ARCH)
-csp_$(ARCH): $(LIBCSP_DIR)/install_$(ARCH)/lib/libcsp.a
+all:$(LIBCSP_BUILD_DIR)/libcsp.a
 
 %/libcsp.a: $(shell find src -type f) $(shell find include -type f)
 	cd $(LIBCSP_DIR) && \
@@ -32,5 +36,3 @@ csp_$(ARCH): $(LIBCSP_DIR)/install_$(ARCH)/lib/libcsp.a
 clean:
 	cd $(LIBCSP_DIR) && \
 	$(PYTHON2) waf configure $(LIBCSP_CONFIG) clean
-	cd $(LIBCSP_DIR) && \
-	rm install_arm install_$(ARCH) -rf
