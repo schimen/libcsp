@@ -27,6 +27,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include <csp/arch/csp_time.h>
 
+uint32_t csp_get_ns(void) {
+	struct timespec ts;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
+		return (uint32_t)(ts.tv_sec*1000000000+ts.tv_nsec);
+	else
+		return 0;
+}
+
 uint32_t csp_get_ms(void) {
 	struct timespec ts;
 
