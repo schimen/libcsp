@@ -10,7 +10,7 @@ ROOT = $(abspath ..)
 
 LIBCSP_DIR = $(ROOT)/libcsp
 
-LIBCSP_CONFIG_COMMON =  --enable-crc32  --enable-if-can --enable-can-socketcan=socketcan --with-os=posix --with-padding=0 --install-csp
+LIBCSP_CONFIG_COMMON =  --enable-crc32  --enable-if-can --enable-can-socketcan=socketcan --with-os=posix --with-padding=0 --install-csp --with-connection-so=64
 
 ifeq ($(ARCH),arm) # ARM toolchain
 	LIBCSP_CONFIG_PLATFORM =  --toolchain=arm-linux-gnueabihf-
