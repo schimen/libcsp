@@ -117,7 +117,12 @@ int csp_conn_init(void) {
 
 	/* Initialize source port */
 	srand(csp_get_ms());
-	sport = (rand() % (max_ephemeral_port - min_ephemeral_port)) + (min_ephemeral_port);
+	if ((min_ephemeral_port - max_ephemeral_port) == 0) {
+		sport = min_ephemeral_port;
+	}
+	else {
+		sport = (rand() % (max_ephemeral_port - min_ephemeral_port)) + (min_ephemeral_port);
+	}
 
 	if (csp_bin_sem_create(&sport_lock) != CSP_SEMAPHORE_OK) {
 		csp_log_error("No more memory for sport semaphore");

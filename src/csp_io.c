@@ -112,7 +112,7 @@ int csp_init(unsigned char address) {
 	/* Initialize CSP */
 	csp_set_address(address);
 
-	csp_set_sport(CSP_ID_PORT_MAX, 31);
+	csp_set_sport(CSP_ID_PORT_MAX, CSP_ID_PORT_MAX);
 
 	ret = csp_conn_init();
 	if (ret != CSP_ERR_NONE)

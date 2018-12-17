@@ -57,6 +57,13 @@ void csp_set_address(uint8_t addr);
  */
 uint8_t csp_get_address(void);
 
+/** csp_set_sport
+ * Set the systems range of ephemeral source ports
+ * @param sport_min Lower bound for outgoing source ports
+ * @param sport_max Upper bound for outgoing source ports
+ */
+void csp_set_sport(unsigned char sport_min, unsigned char sport_max);
+
 /** csp_set_hostname
  * Set subsystem hostname.
  * This function takes a pointer to a string, which should remain static
@@ -144,7 +151,8 @@ int csp_send(csp_conn_t *conn, csp_packet_t *packet, uint32_t timeout);
  * @param timeout a timeout to wait for TX to complete. NOTE: not all underlying drivers supports flow-control.
  * @return returns 1 if successful and 0 otherwise. you MUST free the frame yourself if the transmission was not successful.
  */
-int csp_send_prio(uint8_t prio, csp_conn_t *conn, csp_packet_t *packet, uint32_t timeout);
+int csp_send_prio(uint8_t prio, csp_conn_t *conn, csp_packet_t *packet,
+		  uint32_t timeout);
 
 /**
  * Perform an entire request/reply transaction
@@ -160,7 +168,8 @@ int csp_send_prio(uint8_t prio, csp_conn_t *conn, csp_packet_t *packet, uint32_t
  * @param inlen length of expected reply, -1 for unknown size (note inbuf MUST be large enough)
  * @return Return 1 or reply size if successful, 0 if error or incoming length does not match or -1 if timeout was reached
  */
-int csp_transaction(uint8_t prio, uint8_t dest, uint8_t port, uint32_t timeout, void *outbuf, int outlen, void *inbuf, int inlen);
+int csp_transaction(uint8_t prio, uint8_t dest, uint8_t port, uint32_t timeout,
+		    void *outbuf, int outlen, void *inbuf, int inlen);
 
 /**
  * Use an existing connection to perform a transaction,
@@ -173,7 +182,8 @@ int csp_transaction(uint8_t prio, uint8_t dest, uint8_t port, uint32_t timeout, 
  * @param inlen length of expected reply, -1 for unknown size (note inbuf MUST be large enough)
  * @return
  */
-int csp_transaction_persistent(csp_conn_t *conn, uint32_t timeout, void *outbuf, int outlen, void *inbuf, int inlen);
+int csp_transaction_persistent(csp_conn_t *conn, uint32_t timeout, void *outbuf,
+			       int outlen, void *inbuf, int inlen);
 
 /**
  * Read data from a connection-less server socket
@@ -195,7 +205,8 @@ csp_packet_t *csp_recvfrom(csp_socket_t *socket, uint32_t timeout);
  * @param timeout timeout used by interfaces with blocking send
  * @return -1 if error (you must free packet), 0 if OK (you must discard pointer)
  */
-int csp_sendto(uint8_t prio, uint8_t dest, uint8_t dport, uint8_t src_port, uint32_t opts, csp_packet_t *packet, uint32_t timeout);
+int csp_sendto(uint8_t prio, uint8_t dest, uint8_t dport, uint8_t src_port,
+	       uint32_t opts, csp_packet_t *packet, uint32_t timeout);
 
 /**
  * Send a packet as a direct reply to the source of an incoming packet,
@@ -206,7 +217,8 @@ int csp_sendto(uint8_t prio, uint8_t dest, uint8_t dport, uint8_t src_port, uint
  * @param timeout timeout used by interfaces with blocking send
  * @return -1 if error (you must free packet), 0 if OK (you must discard pointer)
  */
-int csp_sendto_reply(csp_packet_t * request_packet, csp_packet_t * reply_packet, uint32_t opts, uint32_t timeout);
+int csp_sendto_reply(csp_packet_t *request_packet, csp_packet_t *reply_packet,
+		     uint32_t opts, uint32_t timeout);
 
 /** csp_connect
  * Used to establish outgoing connections
@@ -220,7 +232,8 @@ int csp_sendto_reply(csp_packet_t * request_packet, csp_packet_t * reply_packet,
  * @param opts Connection options.
  * @return a pointer to a new connection or NULL
  */
-csp_conn_t *csp_connect(uint8_t prio, uint8_t dest, uint8_t dport, uint32_t timeout, uint32_t opts);
+csp_conn_t *csp_connect(uint8_t prio, uint8_t dest, uint8_t dport,
+			uint32_t timeout, uint32_t opts);
 
 /** csp_close
  * Closes a given connection and frees buffers used.
@@ -299,7 +312,8 @@ int csp_route_work(uint32_t timeout);
  * @param _if_b pointer to second side
  * @return CSP_ERR type
  */
-int csp_bridge_start(unsigned int task_stack_size, unsigned int task_priority, csp_iface_t * _if_a, csp_iface_t * _if_b);
+int csp_bridge_start(unsigned int task_stack_size, unsigned int task_priority,
+		     csp_iface_t *_if_a, csp_iface_t *_if_b);
 
 /**
  * Enable promiscuous mode packet queue
@@ -340,7 +354,8 @@ csp_packet_t *csp_promisc_read(uint32_t timeout);
  * @param timeout timeout in ms to wait for csp_send()
  * @return 0 if OK, -1 if ERR
  */
-int csp_sfp_send(csp_conn_t * conn, void * data, int totalsize, int mtu, uint32_t timeout);
+int csp_sfp_send(csp_conn_t *conn, void *data, int totalsize, int mtu,
+		 uint32_t timeout);
 
 /**
  * Same as csp_sfp_send but with option to supply your own memcpy function.
@@ -353,7 +368,9 @@ int csp_sfp_send(csp_conn_t * conn, void * data, int totalsize, int mtu, uint32_
  * @param memcpyfcn, pointer to memcpy function
  * @return 0 if OK, -1 if ERR
  */
-int csp_sfp_send_own_memcpy(csp_conn_t * conn, void * data, int totalsize, int mtu, uint32_t timeout, void * (*memcpyfcn)(void *, const void *, size_t));
+int csp_sfp_send_own_memcpy(csp_conn_t *conn, void *data, int totalsize,
+			    int mtu, uint32_t timeout,
+			    void *(*memcpyfcn)(void *, const void *, size_t));
 
 /**
  * This is the counterpart to the csp_sfp_send function
@@ -363,7 +380,8 @@ int csp_sfp_send_own_memcpy(csp_conn_t * conn, void * data, int totalsize, int m
  * @param timeout timeout in ms to wait for csp_recv()
  * @return 0 if OK, -1 if ERR
  */
-int csp_sfp_recv(csp_conn_t * conn, void ** dataout, int * datasize, uint32_t timeout);
+int csp_sfp_recv(csp_conn_t *conn, void **dataout, int *datasize,
+		 uint32_t timeout);
 
 /**
  * This is the counterpart to the csp_sfp_send function
@@ -374,7 +392,8 @@ int csp_sfp_recv(csp_conn_t * conn, void ** dataout, int * datasize, uint32_t ti
  * @param first_packet This is a pointer to the first SFP packet (previously received with csp_read)
  * @return 0 if OK, -1 if ERR
  */
-int csp_sfp_recv_fp(csp_conn_t * conn, void ** dataout, int * datasize, uint32_t timeout, csp_packet_t * first_packet);
+int csp_sfp_recv_fp(csp_conn_t *conn, void **dataout, int *datasize,
+		    uint32_t timeout, csp_packet_t *first_packet);
 
 /**
  * If the given packet is a service-request (that is uses one of the csp service ports)
@@ -397,7 +416,8 @@ void csp_service_handler(csp_conn_t *conn, csp_packet_t *packet);
  * @param conn_options csp connection options
  * @return >0 = Echo time in ms, -1 = ERR
  */
-int csp_ping(uint8_t node, uint32_t timeout, unsigned int size, uint8_t conn_options);
+int csp_ping(uint8_t node, uint32_t timeout, unsigned int size,
+	     uint8_t conn_options);
 
 /**
  * Send a single ping/echo packet without waiting for reply
@@ -456,8 +476,8 @@ void csp_uptime(uint8_t node, uint32_t timeout);
  * @param ack_delay_count Send acknowledgement for every ack_delay_count packets
  */
 void csp_rdp_set_opt(unsigned int window_size, unsigned int conn_timeout_ms,
-		unsigned int packet_timeout_ms, unsigned int delayed_acks,
-		unsigned int ack_timeout, unsigned int ack_delay_count);
+		     unsigned int packet_timeout_ms, unsigned int delayed_acks,
+		     unsigned int ack_timeout, unsigned int ack_delay_count);
 
 /**
  * Get RDP options
@@ -469,8 +489,9 @@ void csp_rdp_set_opt(unsigned int window_size, unsigned int conn_timeout_ms,
  * @param ack_delay_count Send acknowledgement for every ack_delay_count packets
  */
 void csp_rdp_get_opt(unsigned int *window_size, unsigned int *conn_timeout_ms,
-		unsigned int *packet_timeout_ms, unsigned int *delayed_acks,
-		unsigned int *ack_timeout, unsigned int *ack_delay_count);
+		     unsigned int *packet_timeout_ms,
+		     unsigned int *delayed_acks, unsigned int *ack_timeout,
+		     unsigned int *ack_delay_count);
 
 /**
  * Set XTEA key
@@ -492,7 +513,7 @@ int csp_hmac_set_key(char *key, uint32_t keylen);
  * Print connection table
  */
 void csp_conn_print_table(void);
-int csp_conn_print_table_str(char * str_buf, int str_size);
+int csp_conn_print_table_str(char *str_buf, int str_size);
 
 /**
  * Print buffer usage table
@@ -502,10 +523,11 @@ void csp_buffer_print_table(void);
 #ifdef __AVR__
 typedef uint32_t csp_memptr_t;
 #else
-typedef void * csp_memptr_t;
+typedef void *csp_memptr_t;
 #endif
 
-typedef csp_memptr_t (*csp_memcpy_fnc_t)(csp_memptr_t, const csp_memptr_t, size_t);
+typedef csp_memptr_t (*csp_memcpy_fnc_t)(csp_memptr_t, const csp_memptr_t,
+					 size_t);
 void csp_cmp_set_memcpy(csp_memcpy_fnc_t fnc);
 
 /**
@@ -513,7 +535,8 @@ void csp_cmp_set_memcpy(csp_memcpy_fnc_t fnc);
  * @param f Hook function
  */
 #include <stdarg.h>
-typedef void (*csp_debug_hook_func_t)(csp_debug_level_t level, const char *format, va_list args);
+typedef void (*csp_debug_hook_func_t)(csp_debug_level_t level,
+				      const char *format, va_list args);
 void csp_debug_hook_set(csp_debug_hook_func_t f);
 
 #ifdef __cplusplus
