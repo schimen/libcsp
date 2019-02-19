@@ -59,6 +59,7 @@ def options(ctx):
     # Drivers
     gr.add_option('--enable-can-socketcan', default=None, metavar='CHIP', help='Enable Linux socketcan driver')
     gr.add_option('--with-driver-usart', default=None, metavar='DRIVER', help='Build USART driver. [windows, linux, None]')
+    gr.add_option('--with-driver-tcp', default=None, metavar='DRIVER', help='Build TCP driver. [linux]')
 
     # OS    
     gr.add_option('--with-os', metavar='OS', default='posix', help='Set operating system. Must be either \'posix\', \'macosx\', \'windows\' or \'freertos\'')
@@ -141,6 +142,10 @@ def configure(ctx):
     # Add CAN driver
     if ctx.options.enable_can_socketcan:
         ctx.env.append_unique('FILES_CSP', 'src/drivers/can/can_socketcan.c')
+
+    # Add TCP driver
+    if ctx.options.with_driver_tcp:
+        ctx.env.append_unique('FILES_CSP', 'src/drivers/tcp/tcp.c')
 
     # Add USART driver
     if ctx.options.with_driver_usart != None:
@@ -250,6 +255,8 @@ def build(ctx):
             ctx.install_files('${PREFIX}/include/csp/interfaces', 'include/csp/interfaces/csp_if_kiss.h')
         if 'src/drivers/usart/usart_{0}.c'.format(ctx.options.with_driver_usart) in ctx.env.FILES_CSP:
             ctx.install_as('${PREFIX}/include/csp/drivers/usart.h', 'include/csp/drivers/usart.h')
+        if 'src/drivers/tcp/tcp.c' in ctx.env.FILES_CSP:
+            ctx.install_as('${PREFIX}/include/csp/drivers/tcp.h', 'include/csp/drivers/tcp.h')
 
         ctx.install_files('${PREFIX}/include/csp', 'include/csp/csp_autoconfig.h', cwd=ctx.bldnode)
 
