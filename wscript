@@ -53,6 +53,7 @@ def options(ctx):
     # Interfaces    
     gr.add_option('--enable-if-i2c', action='store_true', help='Enable I2C interface')
     gr.add_option('--enable-if-kiss', action='store_true', help='Enable KISS/RS.232 interface')
+    gr.add_option('--enable-if-nng', action='store_true', help='Enable NNG interface')
     gr.add_option('--enable-if-can', action='store_true', help='Enable CAN interface')
     gr.add_option('--enable-if-zmqhub', action='store_true', help='Enable ZMQHUB interface')
     
@@ -122,7 +123,7 @@ def configure(ctx):
 
     # Libs
     if 'posix' in ctx.env.OS:
-        ctx.env.append_unique('LIBS', ['rt', 'pthread', 'util'])
+        ctx.env.append_unique('LIBS', ['rt', 'pthread', 'util', 'nng'])
     elif 'macosx' in ctx.env.OS:
         ctx.env.append_unique('LIBS', ['pthread'])
 
@@ -158,6 +159,8 @@ def configure(ctx):
         ctx.env.append_unique('FILES_CSP', 'src/interfaces/csp_if_i2c.c')
     if ctx.options.enable_if_kiss:
         ctx.env.append_unique('FILES_CSP', 'src/interfaces/csp_if_kiss.c')
+    if ctx.options.enable_if_nng:
+        ctx.env.append_unique('FILES_CSP', 'src/interfaces/csp_if_nng.c')
     if ctx.options.enable_if_zmqhub:
         ctx.env.append_unique('FILES_CSP', 'src/interfaces/csp_if_zmqhub.c')
         ctx.check_cfg(package='libzmq', args='--cflags --libs')
@@ -253,6 +256,8 @@ def build(ctx):
             ctx.install_files('${PREFIX}/include/csp/interfaces', 'include/csp/interfaces/csp_if_i2c.h')
         if 'src/interfaces/csp_if_kiss.c' in ctx.env.FILES_CSP:
             ctx.install_files('${PREFIX}/include/csp/interfaces', 'include/csp/interfaces/csp_if_kiss.h')
+        if 'src/interfaces/csp_if_nng.c' in ctx.env.FILES_CSP:
+            ctx.install_files('${PREFIX}/include/csp/interfaces', 'include/csp/interfaces/csp_if_nng.h')
         if 'src/drivers/usart/usart_{0}.c'.format(ctx.options.with_driver_usart) in ctx.env.FILES_CSP:
             ctx.install_as('${PREFIX}/include/csp/drivers/usart.h', 'include/csp/drivers/usart.h')
         if 'src/drivers/tcp/tcp.c' in ctx.env.FILES_CSP:
