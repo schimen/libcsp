@@ -73,7 +73,7 @@ static void rx_thread(csp_iface_t *interface)
 					       data_size);
 					// Forward to the CSP stack
 					packet->length = data_size;
-					csp_new_packet(packet, interface, NULL);
+					csp_qfifo_write(packet, interface, NULL);
 				}
 			}
 			nng_free(buf, full_size);
