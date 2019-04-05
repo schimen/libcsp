@@ -123,7 +123,7 @@ def configure(ctx):
 
     # Libs
     if 'posix' in ctx.env.OS:
-        ctx.env.append_unique('LIBS', ['rt', 'pthread', 'util', 'nng'])
+        ctx.env.append_unique('LIBS', ['rt', 'pthread', 'util'])
     elif 'macosx' in ctx.env.OS:
         ctx.env.append_unique('LIBS', ['pthread'])
 
@@ -161,6 +161,7 @@ def configure(ctx):
         ctx.env.append_unique('FILES_CSP', 'src/interfaces/csp_if_kiss.c')
     if ctx.options.enable_if_nng:
         ctx.env.append_unique('FILES_CSP', 'src/interfaces/csp_if_nng.c')
+        ctx.env.append_unique('LIBS', ['nng'])
     if ctx.options.enable_if_zmqhub:
         ctx.env.append_unique('FILES_CSP', 'src/interfaces/csp_if_zmqhub.c')
         ctx.check_cfg(package='libzmq', args='--cflags --libs')
