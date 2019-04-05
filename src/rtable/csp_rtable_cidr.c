@@ -25,6 +25,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include <csp/arch/csp_malloc.h>
 #include <csp/interfaces/csp_if_lo.h>
 
+#include "../csp_init.h"
+
 /* Local typedef for routing table */
 typedef struct __attribute__((__packed__)) csp_rtable_s {
 	uint8_t address;
@@ -97,7 +99,7 @@ void csp_rtable_clear(void) {
 	rtable = NULL;
 
 	/* Set loopback up again */
-	csp_rtable_set(csp_get_address(), CSP_ID_HOST_SIZE, &csp_if_lo, CSP_NODE_MAC);
+	csp_rtable_set(csp_conf.address, CSP_ID_HOST_SIZE, &csp_if_lo, CSP_NODE_MAC);
 
 }
 
@@ -114,7 +116,7 @@ static int csp_rtable_parse(char * buffer, int dry_run) {
 
 	while ((str) && (strlen(str) > 1)) {
 		int address = 0, netmask = 0, mac = 255;
-		char name[100] = {};
+		char name[10] = {};
 		if (sscanf(str, "%u/%u %s %u", &address, &netmask, name, &mac) != 4) {
 			if (sscanf(str, "%u/%u %s", &address, &netmask, name) != 3) {
 				csp_log_error("Parse error %s", str);
@@ -218,6 +220,7 @@ int csp_rtable_set(uint8_t _address, uint8_t _netmask, csp_iface_t *ifc, uint8_t
 	return CSP_ERR_NONE;
 }
 
+#ifdef CSP_DEBUG
 void csp_rtable_print(void) {
 
 	for (csp_rtable_t * i = rtable; (i); i = i->next) {
@@ -229,4 +232,4 @@ void csp_rtable_print(void) {
 	}
 
 }
-
+#endif

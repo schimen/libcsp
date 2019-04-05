@@ -47,6 +47,7 @@ def options(ctx):
     gr.add_option('--enable-hmac', action='store_true', help='Enable HMAC-SHA1 support')
     gr.add_option('--enable-xtea', action='store_true', help='Enable XTEA support')
     gr.add_option('--enable-bindings', action='store_true', help='Enable Python bindings')
+    gr.add_option('--enable-python3-bindings', action='store_true', help='Enable Python3 bindings')
     gr.add_option('--enable-examples', action='store_true', help='Enable examples')
     gr.add_option('--enable-dedup', action='store_true', help='Enable packet deduplicator')
 
@@ -58,7 +59,7 @@ def options(ctx):
     gr.add_option('--enable-if-zmqhub', action='store_true', help='Enable ZMQHUB interface')
     
     # Drivers
-    gr.add_option('--enable-can-socketcan', default=None, metavar='CHIP', help='Enable Linux socketcan driver')
+    gr.add_option('--enable-can-socketcan', action='store_true', help='Enable Linux socketcan driver')
     gr.add_option('--with-driver-usart', default=None, metavar='DRIVER', help='Build USART driver. [windows, linux, None]')
     gr.add_option('--with-driver-tcp', default=None, metavar='DRIVER', help='Build TCP driver. [linux]')
 
@@ -155,6 +156,7 @@ def configure(ctx):
     # Interfaces
     if ctx.options.enable_if_can:
         ctx.env.append_unique('FILES_CSP', 'src/interfaces/csp_if_can.c')
+        ctx.env.append_unique('FILES_CSP', 'src/interfaces/csp_if_can_pbuf.c')
     if ctx.options.enable_if_i2c:
         ctx.env.append_unique('FILES_CSP', 'src/interfaces/csp_if_i2c.c')
     if ctx.options.enable_if_kiss:
@@ -170,7 +172,13 @@ def configure(ctx):
     # Store configuration options
     ctx.env.ENABLE_BINDINGS = ctx.options.enable_bindings
     ctx.env.ENABLE_EXAMPLES = ctx.options.enable_examples
-    
+
+    # Check for python development
+    if ctx.options.enable_bindings:
+        ctx.check_cfg(package='python2', args='--cflags --libs', atleast_version='2.7')
+        if ctx.options.enable_python3_bindings:
+            ctx.check_cfg(package='python3', args='--cflags --libs', atleast_version='3.5')
+
     # Create config file
     if not ctx.options.disable_output:
         ctx.env.append_unique('FILES_CSP', 'src/csp_debug.c')
@@ -207,16 +215,6 @@ def configure(ctx):
     ctx.define_cond('CSP_USE_QOS', ctx.options.enable_qos)
     ctx.define_cond('CSP_USE_DEDUP', ctx.options.enable_dedup)
     ctx.define_cond('CSP_USE_INIT_SHUTDOWN', ctx.options.enable_init_shutdown)
-    ctx.define('CSP_CONN_MAX', ctx.options.with_max_connections)
-    ctx.define('CSP_CONN_QUEUE_LENGTH', ctx.options.with_conn_queue_length)
-    ctx.define('CSP_FIFO_INPUT', ctx.options.with_router_queue_length)
-    ctx.define('CSP_MAX_BIND_PORT', ctx.options.with_max_bind_port)
-    ctx.define('CSP_RDP_MAX_WINDOW', ctx.options.with_rdp_max_window)
-    ctx.define('CSP_PADDING_BYTES', ctx.options.with_padding)
-    ctx.define('CSP_CONNECTION_SO', ctx.options.with_connection_so)
-    
-    if ctx.options.with_bufalign != None:
-        ctx.define('CSP_BUFFER_ALIGN', ctx.options.with_bufalign)
 
     # Set logging level
     ctx.define_cond('CSP_LOG_LEVEL_DEBUG', ctx.options.with_loglevel in ('debug'))
@@ -240,7 +238,7 @@ def configure(ctx):
 
     ctx.define('LIBCSP_VERSION', VERSION)
 
-    ctx.write_config_header('include/csp/csp_autoconfig.h', top=True, remove=True)
+    ctx.write_config_header('include/csp/csp_autoconfig.h')
     
 def build(ctx):
 
@@ -259,6 +257,8 @@ def build(ctx):
             ctx.install_files('${PREFIX}/include/csp/interfaces', 'include/csp/interfaces/csp_if_kiss.h')
         if 'src/interfaces/csp_if_nng.c' in ctx.env.FILES_CSP:
             ctx.install_files('${PREFIX}/include/csp/interfaces', 'include/csp/interfaces/csp_if_nng.h')
+        if 'src/interfaces/csp_if_zmqhub.c' in ctx.env.FILES_CSP:
+            ctx.install_files('${PREFIX}/include/csp/interfaces', 'include/csp/interfaces/csp_if_zmqhub.h')
         if 'src/drivers/usart/usart_{0}.c'.format(ctx.options.with_driver_usart) in ctx.env.FILES_CSP:
             ctx.install_as('${PREFIX}/include/csp/drivers/usart.h', 'include/csp/drivers/usart.h')
         if 'src/drivers/tcp/tcp.c' in ctx.env.FILES_CSP:
@@ -280,11 +280,30 @@ def build(ctx):
     # Build shared library for Python bindings
     if ctx.env.ENABLE_BINDINGS:
         ctx.shlib(source=ctx.path.ant_glob(ctx.env.FILES_CSP),
+            name = 'csp_shlib',
             target = 'csp',
             includes= ctx.env.INCLUDES_CSP,
             export_includes = 'include',
             use = ['include'],
             lib = ctx.env.LIBS)
+
+        # python3 bindings
+        if ctx.env.INCLUDES_PYTHON3:
+            ctx.shlib(source = ['src/bindings/python/pycsp.c'],
+                      target = 'csp_py3',
+                      includes = ctx.env.INCLUDES_CSP + ctx.env.INCLUDES_PYTHON3,
+                      export_includes = 'include',
+                      use = ['csp_shlib', 'include'],
+                      lib = ctx.env.LIBS)
+
+        # python2 bindings
+        if ctx.env.INCLUDES_PYTHON2:
+            ctx.shlib(source = ['src/bindings/python/pycsp.c'],
+                      target = 'csp_py2',
+                      includes = ctx.env.INCLUDES_CSP + ctx.env.INCLUDES_PYTHON2,
+                      export_includes = 'include',
+                      use = ['csp_shlib', 'include'],
+                      lib = ctx.env.LIBS)
 
     if ctx.env.ENABLE_EXAMPLES:
         ctx.program(source = ctx.path.ant_glob('examples/simple.c'),
@@ -300,6 +319,13 @@ def build(ctx):
                 lib = ctx.env.LIBS,
                 use = 'csp')
 
+        if ctx.options.enable_if_zmqhub:
+            ctx.program(source = 'examples/zmqproxy.c',
+                        target = 'zmqproxy',
+                        includes = ctx.env.INCLUDES_CSP,
+                        lib = ctx.env.LIBS,
+                        use = 'csp')
+            
         if 'posix' in ctx.env.OS:
             ctx.program(source = 'examples/csp_if_fifo.c',
                 target = 'fifo',

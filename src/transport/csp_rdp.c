@@ -40,6 +40,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "../csp_port.h"
 #include "../csp_conn.h"
 #include "../csp_io.h"
+#include "../csp_init.h"
 #include "csp_transport.h"
 
 #ifdef CSP_USE_RDP
@@ -404,11 +405,7 @@ static inline bool csp_rdp_should_ack(csp_conn_t * conn) {
 
 	/* If delayed ACKs are not used, always ACK */
 	if (!conn->rdp.delayed_acks) {
-		if (conn->rdp.rcv_lsa != conn->rdp.rcv_cur) {
-			return true;
-		} else {
-			return false;
-		}
+		return true;
 	}
 
 	/* ACK if time since last ACK is greater than ACK timeout */
@@ -451,12 +448,13 @@ void csp_rdp_flush_all(csp_conn_t * conn) {
 
 }
 
+
 int csp_rdp_check_ack(csp_conn_t * conn) {
 
 	/* Check all RX queues for spare capacity */
 	int prio, avail = 1;
 	for (prio = 0; prio < CSP_RX_QUEUES; prio++) {
-		if (CSP_RX_QUEUE_LENGTH - csp_queue_size(conn->rx_queue[prio]) <= 2 * (int32_t)conn->rdp.window_size) {
+		if (csp_conf.conn_queue_length - csp_queue_size(conn->rx_queue[prio]) <= 2 * (int32_t)conn->rdp.window_size) {
 			avail = 0;
 			break;
 		}
@@ -555,7 +553,11 @@ void csp_rdp_check_timeouts(csp_conn_t * conn) {
 	 * ACK TIMEOUT:
 	 * Check ACK timeouts, if we have unacknowledged segments
 	 */
-	csp_rdp_check_ack(conn);
+
+	if (conn->rdp.delayed_acks) {
+	  csp_rdp_check_ack(conn);
+	}
+
 
 	/* Wake user task if TX queue is ready for more data */
 	if (conn->rdp.state == RDP_OPEN)
@@ -788,6 +790,7 @@ void csp_rdp_new_packet(csp_conn_t * conn, csp_packet_t * packet) {
 		if (rx_header->seq_nr != (uint16_t)(conn->rdp.rcv_cur + 1)) {
 			if (csp_rdp_rx_queue_add(conn, packet, rx_header->seq_nr) != CSP_QUEUE_OK) {
 				csp_log_protocol("Duplicate sequence number");
+				csp_rdp_check_ack(conn);
 				goto discard_open;
 			}
 			csp_rdp_send_eack(conn);
@@ -998,7 +1001,7 @@ int csp_rdp_allocate(csp_conn_t * conn) {
 	}
 
 	/* Create TX queue */
-	conn->rdp.tx_queue = csp_queue_create(CSP_RDP_MAX_WINDOW, sizeof(csp_packet_t *));
+	conn->rdp.tx_queue = csp_queue_create(csp_conf.rdp_max_window, sizeof(csp_packet_t *));
 	if (conn->rdp.tx_queue == NULL) {
 		csp_log_error("Failed to create TX queue for conn");
 		csp_bin_sem_remove(&conn->rdp.tx_wait);
@@ -1006,7 +1009,7 @@ int csp_rdp_allocate(csp_conn_t * conn) {
 	}
 
 	/* Create RX queue */
-	conn->rdp.rx_queue = csp_queue_create(CSP_RDP_MAX_WINDOW * 2, sizeof(csp_packet_t *));
+	conn->rdp.rx_queue = csp_queue_create(csp_conf.rdp_max_window * 2, sizeof(csp_packet_t *));
 	if (conn->rdp.rx_queue == NULL) {
 		csp_log_error("Failed to create RX queue for conn");
 		csp_bin_sem_remove(&conn->rdp.tx_wait);
