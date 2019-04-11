@@ -56,25 +56,38 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 static struct can_socketcan_s {
 	int socket;
 	csp_iface_t interface;
-} socketcan[1] = {
+} socketcan[2] = {
 	{
 		.interface = {
-			.name = "CAN",
 			.nexthop = csp_can_tx,
 			.mtu = CSP_CAN_MTU,
 			.driver = &socketcan[0],
 		},
+		.socket = -1
 	},
+	{
+		.interface = {
+			.nexthop = csp_can_tx,
+			.mtu = CSP_CAN_MTU,
+			.driver = &socketcan[1],
+		},
+		.socket = -1
+	}
 };
 
-static void * socketcan_rx_thread(void * parameters)
+static void *socketcan_rx_thread(void *parameters)
 {
 	struct can_frame frame;
 	int nbytes;
+	csp_iface_t *interface;
+	int sock;
+
+	interface = (csp_iface_t *)parameters;
+	sock = ((struct can_socketcan_s *)interface->driver)->socket;
 
 	while (1) {
 		/* Read CAN frame */
-		nbytes = read(socketcan[0].socket, &frame, sizeof(frame));
+		nbytes = read(sock, &frame, sizeof(frame));
 		if (nbytes < 0) {
 			csp_log_error("read: %s", strerror(errno));
 			continue;
@@ -86,7 +99,8 @@ static void * socketcan_rx_thread(void * parameters)
 		}
 
 		/* Frame type */
-		if (frame.can_id & (CAN_ERR_FLAG | CAN_RTR_FLAG) || !(frame.can_id & CAN_EFF_FLAG)) {
+		if (frame.can_id & (CAN_ERR_FLAG | CAN_RTR_FLAG) ||
+		    !(frame.can_id & CAN_EFF_FLAG)) {
 			/* Drop error and remote frames */
 			csp_log_warn("Discarding ERR/RTR/SFF frame");
 			continue;
@@ -96,18 +110,22 @@ static void * socketcan_rx_thread(void * parameters)
 		frame.can_id &= CAN_EFF_MASK;
 
 		/* Call RX callbacsp_can_rx_frameck */
-		csp_can_rx(&socketcan[0].interface, frame.can_id, frame.data, frame.can_dlc, NULL);
+		csp_can_rx(interface, frame.can_id, frame.data, frame.can_dlc,
+			   NULL);
 	}
 
 	/* We should never reach this point */
 	pthread_exit(NULL);
 }
 
-
-int csp_can_tx_frame(csp_iface_t *interface, uint32_t id, const uint8_t * data, uint8_t dlc)
+int csp_can_tx_frame(csp_iface_t *interface, uint32_t id, const uint8_t *data,
+		     uint8_t dlc)
 {
 	struct can_frame frame;
 	int i, tries = 0;
+	int sock;
+
+	sock = ((struct can_socketcan_s *)interface->driver)->socket;
 
 	if (dlc > 8)
 		return -1;
@@ -123,7 +141,7 @@ int csp_can_tx_frame(csp_iface_t *interface, uint32_t id, const uint8_t * data, 
 	frame.can_dlc = dlc;
 
 	/* Send frame */
-	while (write(socketcan[0].socket, &frame, sizeof(frame)) != sizeof(frame)) {
+	while (write(sock, &frame, sizeof(frame)) != sizeof(frame)) {
 		if (++tries < 1000 && errno == ENOBUFS) {
 			/* Wait 10 ms and try again */
 			usleep(10000);
@@ -136,11 +154,12 @@ int csp_can_tx_frame(csp_iface_t *interface, uint32_t id, const uint8_t * data, 
 	return 0;
 }
 
-csp_iface_t * csp_can_socketcan_init(const char * ifc, int bitrate, int promisc)
+csp_iface_t *csp_can_socketcan_init(const char *ifc, int bitrate, int promisc)
 {
 	struct ifreq ifr;
 	struct sockaddr_can addr;
 	pthread_t rx_thread;
+	struct can_socketcan_s *driver;
 
 	printf("Init can interface %s\n", ifc);
 
@@ -154,15 +173,30 @@ csp_iface_t * csp_can_socketcan_init(const char * ifc, int bitrate, int promisc)
 	}
 #endif
 
+	/* Look for free socketcan driver struct */
+	driver = NULL;
+	int driver_count = sizeof(socketcan) / sizeof(struct can_socketcan_s);
+	for (int i = 0; i < driver_count; i++) {
+		if (socketcan[i].socket == -1) {
+			driver = &socketcan[i];
+			driver->interface.name = ifc;
+			break;
+		}
+	}
+	if (driver == NULL) {
+		csp_log_warn("No free socketcan drivers.\n");
+		return NULL;
+	}
+
 	/* Create socket */
-	if ((socketcan[0].socket = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
+	if ((driver->socket = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
 		csp_log_error("socket: %s", strerror(errno));
 		return NULL;
 	}
 
 	/* Locate interface */
 	strncpy(ifr.ifr_name, ifc, IFNAMSIZ - 1);
-	if (ioctl(socketcan[0].socket, SIOCGIFINDEX, &ifr) < 0) {
+	if (ioctl(driver->socket, SIOCGIFINDEX, &ifr) < 0) {
 		csp_log_error("ioctl: %s", strerror(errno));
 		return NULL;
 	}
@@ -170,32 +204,32 @@ csp_iface_t * csp_can_socketcan_init(const char * ifc, int bitrate, int promisc)
 	/* Bind the socket to CAN interface */
 	addr.can_family = AF_CAN;
 	addr.can_ifindex = ifr.ifr_ifindex;
-	if (bind(socketcan[0].socket, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+	if (bind(driver->socket, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 		csp_log_error("bind: %s", strerror(errno));
 		return NULL;
 	}
 
 	/* Set filter mode */
 	if (promisc == 0) {
-
 		struct can_filter filter;
 		filter.can_id = CFP_MAKE_DST(csp_get_address());
 		filter.can_mask = CFP_MAKE_DST((1 << CFP_HOST_SIZE) - 1);
 
-		if (setsockopt(socketcan[0].socket, SOL_CAN_RAW, CAN_RAW_FILTER, &filter, sizeof(filter)) < 0) {
+		if (setsockopt(driver->socket, SOL_CAN_RAW, CAN_RAW_FILTER,
+			       &filter, sizeof(filter)) < 0) {
 			csp_log_error("setsockopt: %s", strerror(errno));
 			return NULL;
 		}
-
 	}
 
 	/* Create receive thread */
-	if (pthread_create(&rx_thread, NULL, socketcan_rx_thread, NULL) != 0) {
+	if (pthread_create(&rx_thread, NULL, socketcan_rx_thread,
+			   &driver->interface) != 0) {
 		csp_log_error("pthread_create: %s", strerror(errno));
 		return NULL;
 	}
 
-	csp_iflist_add(&socketcan[0].interface);
+	csp_iflist_add(&driver->interface);
 
-	return &socketcan[0].interface;
+	return &driver->interface;
 }

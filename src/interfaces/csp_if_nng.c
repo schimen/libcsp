@@ -97,6 +97,4 @@ void csp_nng_init(csp_iface_t *csp_interface, nng_socket *nng_sock,
 
 	// Register interface
 	csp_iflist_add(csp_interface);
-
-	csp_route_set(CSP_DEFAULT_ROUTE, csp_interface, CSP_NODE_MAC);
 }
