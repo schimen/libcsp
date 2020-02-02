@@ -24,6 +24,9 @@ static int send(csp_iface_t *interface, csp_packet_t *packet, uint32_t timeout)
 	// Pointer to socket is attached as CSP interface driver
 	nng_socket *socket = (nng_socket *)interface->driver;
 
+	/* Convert header from host to network order. */
+	packet->id.ext = csp_hton32(packet->id.ext);
+
 	if (nng_send(*socket, (void *)&(packet->id),
 		     sizeof(csp_id_t) + packet->length, 0) != 0) {
 		csp_log_warn("Failed to send NNG message");
@@ -71,6 +74,10 @@ static void rx_thread(csp_iface_t *interface)
 					memcpy((void *)&packet->data[0],
 					       (void *)(buf + sizeof(csp_id_t)),
 					       data_size);
+
+					/* Convert packet header from network to host order. */
+					packet->id.ext = csp_ntoh32(packet->id.ext);
+
 					// Forward to the CSP stack
 					packet->length = data_size;
 					csp_qfifo_write(packet, interface, NULL);
