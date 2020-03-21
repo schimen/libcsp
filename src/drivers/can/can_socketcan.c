@@ -142,9 +142,11 @@ int csp_can_tx_frame(csp_iface_t *interface, uint32_t id, const uint8_t *data,
 
 	/* Send frame */
 	while (write(sock, &frame, sizeof(frame)) != sizeof(frame)) {
-		if (++tries < 1000 && errno == ENOBUFS) {
-			/* Wait 10 ms and try again */
-			usleep(10000);
+		const unsigned timeout_us = 10000; // 10 ms
+		const unsigned retry_us = 1;
+		if (++tries < (timeout_us / retry_us) && errno == ENOBUFS) {
+			/* Wait and try again */
+			usleep(retry_us);
 		} else {
 			csp_log_error("write: %s", strerror(errno));
 			break;
