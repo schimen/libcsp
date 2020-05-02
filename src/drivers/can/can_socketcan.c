@@ -142,8 +142,8 @@ int csp_can_tx_frame(csp_iface_t *interface, uint32_t id, const uint8_t *data,
 
 	/* Send frame */
 	while (write(sock, &frame, sizeof(frame)) != sizeof(frame)) {
-		const unsigned timeout_us = 10000; // 10 ms
-		const unsigned retry_us = 1;
+		const int timeout_us = 10000; // 10 ms
+		const int retry_us = 1;
 		if (++tries < (timeout_us / retry_us) && errno == ENOBUFS) {
 			/* Wait and try again */
 			usleep(retry_us);
