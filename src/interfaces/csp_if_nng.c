@@ -5,6 +5,7 @@
 #include <nng/nng.h>
 
 #include "csp/csp.h"
+#include "csp/csp_endian.h"
 #include "csp/csp_interface.h"
 #include "csp/interfaces/csp_if_nng.h"
 
