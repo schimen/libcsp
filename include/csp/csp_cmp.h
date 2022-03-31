@@ -23,16 +23,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 /**
    @file
-   CSP management protocol (CMP).
+   CSP Management Protocol (CMP).
 */
+
+#include <csp/csp.h>
+#include <csp/arch/csp_clock.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <stdint.h>
-#include <csp/csp.h>
-#include <csp/arch/csp_clock.h>
 
 /**
    CMP type.
@@ -127,7 +126,7 @@ struct csp_cmp_message {
 		} ident;
 		struct {
 			uint8_t dest_node;
-			uint8_t next_hop_mac;
+			uint8_t next_hop_via;
 			char interface[CSP_CMP_ROUTE_IFACE_LEN];
 		} route_set;
 		struct __attribute__((__packed__)) {
@@ -158,14 +157,20 @@ struct csp_cmp_message {
 } __attribute__ ((packed));
 
 /**
-   Macro for calculating size of management message.
+   Macro for calculating total size of management message.
 */
-#define CMP_SIZE(_memb) (sizeof(((struct csp_cmp_message *)0)->_memb) + sizeof(uint8_t) + sizeof(uint8_t))
+#define CMP_SIZE(_memb) (sizeof(((struct csp_cmp_message *)0)->type) + sizeof(((struct csp_cmp_message *)0)->code) + sizeof(((struct csp_cmp_message *)0)->_memb))
 
 /**
    Generic send management message request.
+   @param[in] node address of subsystem.
+   @param[in] timeout timeout in mS to wait for reply..
+   @param[in] code request code.
+   @param[in] msg_size size of \a msg.
+   @param[in,out] msg data.
+   @return #CSP_ERR_NONE on success, otherwise an error code.
 */
-int csp_cmp(uint8_t node, uint32_t timeout, uint8_t code, int membsize, struct csp_cmp_message *msg);
+int csp_cmp(uint8_t node, uint32_t timeout, uint8_t code, int msg_size, struct csp_cmp_message *msg);
 
 /**
    Macro for defining management handling function.
@@ -178,12 +183,32 @@ static inline int csp_cmp_##_memb(uint8_t node, uint32_t timeout, struct csp_cmp
 CMP_MESSAGE(CSP_CMP_IDENT, ident)
 CMP_MESSAGE(CSP_CMP_ROUTE_SET, route_set)
 CMP_MESSAGE(CSP_CMP_IF_STATS, if_stats)
-CMP_MESSAGE(CSP_CMP_PEEK, peek)
-CMP_MESSAGE(CSP_CMP_POKE, poke)
 CMP_MESSAGE(CSP_CMP_CLOCK, clock)
 
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
+/**
+   Peek (read) memory on remote node.
+   @param[in] node address of subsystem.
+   @param[in] timeout timeout in mS to wait for reply..
+   @param[in] msg memory address and number of bytes to peek.
+   @param[out] msg peeked/read memory.
+   @return #CSP_ERR_NONE on success, otherwise an error code.
+*/
+static inline int csp_cmp_peek(uint8_t node, uint32_t timeout, struct csp_cmp_message *msg) {
+    return csp_cmp(node, timeout, CSP_CMP_PEEK, CMP_SIZE(peek) - sizeof(msg->peek.data) + msg->peek.len, msg);
+}
 
-#endif // _CSP_CMP_H_
+/**
+   Poke (write) memory on remote node.
+   @param[in] node address of subsystem.
+   @param[in] timeout timeout in mS to wait for reply..
+   @param[in] msg memory address, number of bytes and the actual bytes to poke/write.
+   @return #CSP_ERR_NONE on success, otherwise an error code.
+*/
+static inline int csp_cmp_poke(uint8_t node, uint32_t timeout, struct csp_cmp_message *msg) {
+    return csp_cmp(node, timeout, CSP_CMP_POKE, CMP_SIZE(poke) - sizeof(msg->poke.data) + msg->poke.len, msg);
+}
+
+#ifdef __cplusplus
+}
+#endif
+#endif

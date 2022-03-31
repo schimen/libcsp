@@ -21,10 +21,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #ifndef CSP_QFIFO_H_
 #define CSP_QFIFO_H_
 
-#ifdef CSP_USE_RDP
-#define FIFO_TIMEOUT 100				//! If RDP is enabled, the router needs to awake some times to check timeouts
+#include <csp/csp_interface.h>
+
+#if (CSP_USE_RDP)
+#define FIFO_TIMEOUT 100			//! If RDP is enabled, the router needs to awake some times to check timeouts
 #else
-#define FIFO_TIMEOUT CSP_MAX_DELAY		//! If no RDP, the router can sleep untill data arrives
+#define FIFO_TIMEOUT CSP_MAX_TIMEOUT		//! If no RDP, the router can sleep untill data arrives
 #endif
 
 /**
@@ -33,8 +35,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 int csp_qfifo_init(void);
 
+void csp_qfifo_free_resources(void);
+
 typedef struct {
-	csp_iface_t * interface;
+	csp_iface_t * iface;
 	csp_packet_t * packet;
 } csp_qfifo_t;
 
