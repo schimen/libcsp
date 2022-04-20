@@ -105,15 +105,17 @@ static int csp_can_tx_frame(void * driver_data, uint32_t id, const uint8_t * dat
                                   .can_dlc = dlc};
         memcpy(frame.data, data, dlc);
 
+	const unsigned int retry_ms = 1;
+	const uint32_t timeout_ms = 10;
 	uint32_t elapsed_ms = 0;
-        can_context_t * ctx = driver_data;
+	can_context_t * ctx = driver_data;
 	while (write(ctx->socket, &frame, sizeof(frame)) != sizeof(frame)) {
-		if ((errno != ENOBUFS) || (elapsed_ms >= 1000)) {
+		if ((errno != ENOBUFS) || (elapsed_ms >= timeout_ms)) {
 			csp_log_warn("%s[%s]: write() failed, errno %d: %s", __FUNCTION__, ctx->name, errno, strerror(errno));
 			return CSP_ERR_TX;
 		}
-		csp_sleep_ms(5);
-		elapsed_ms += 5;
+		csp_sleep_ms(retry_ms);
+		elapsed_ms += retry_ms;
 	}
 
 	return CSP_ERR_NONE;
