@@ -5,24 +5,26 @@
 #include <nng/nng.h>
 
 #include "csp/csp.h"
+#include "csp/csp_endian.h"
 #include "csp/csp_interface.h"
 #include "csp/interfaces/csp_if_nng.h"
 
 /**
  * @brief Send function called by CSP stack
  *
- * @param pInterface
+ * @param route
  * @param packet
- * @param timeout
  * @return int
  */
-static int send(csp_iface_t *interface, csp_packet_t *packet, uint32_t timeout)
+
+static int send(const csp_route_t *ifroute, csp_packet_t *packet)
 {
-	if (interface == NULL || interface->driver == NULL)
+	csp_iface_t * interface = ifroute->iface;
+	if (interface == NULL || interface->driver_data == NULL)
 		return CSP_ERR_DRIVER;
 
 	// Pointer to socket is attached as CSP interface driver
-	nng_socket *socket = (nng_socket *)interface->driver;
+	nng_socket *socket = (nng_socket *)interface->driver_data;
 
 	/* Convert header from host to network order. */
 	packet->id.ext = csp_hton32(packet->id.ext);
@@ -46,7 +48,7 @@ static int send(csp_iface_t *interface, csp_packet_t *packet, uint32_t timeout)
  */
 static void rx_thread(csp_iface_t *interface)
 {
-	nng_socket *socket = (nng_socket *)interface->driver;
+	nng_socket *socket = (nng_socket *)interface->driver_data;
 	while (true) {
 		int rv;
 		char *buf = NULL;
@@ -93,7 +95,7 @@ void csp_nng_init(csp_iface_t *csp_interface, nng_socket *nng_sock,
 {
 	// Set pointer to the socket as CSP interface driver that send function
 	// could know where to send data
-	csp_interface->driver = (void *)nng_sock;
+	csp_interface->driver_data = (void *)nng_sock;
 	csp_interface->mtu = mtu;
 	csp_interface->nexthop = send;
 	csp_interface->name = name;
