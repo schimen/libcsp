@@ -183,6 +183,7 @@ int csp_usart_write(csp_usart_fd_t fd, const void * data, size_t data_length) {
 int csp_usart_open(const csp_usart_conf_t *conf, csp_usart_callback_t rx_callback, void * user_data, csp_usart_fd_t * return_fd) {
 
 	// Check if baudrate is among the default baudrates in termios
+	bool default_baudrate = true;
 	switch(conf->baudrate) {
 		case 4800:    break;
 		case 9600:    break;
@@ -204,7 +205,7 @@ int csp_usart_open(const csp_usart_conf_t *conf, csp_usart_callback_t rx_callbac
 		case 3500000: break;
 		case 4000000: break;
 		default:
-			csp_log_warn("%s: Using non-default baudrate: %u", __FUNCTION__, conf->baudrate);
+			default_baudrate = false;
 	}
 
 	int fd = open(conf->device, O_RDWR | O_NOCTTY | O_NONBLOCK);
@@ -251,6 +252,12 @@ int csp_usart_open(const csp_usart_conf_t *conf, csp_usart_callback_t rx_callbac
 		csp_log_error("%s: Error flushing device: [%s], errno: %s", __FUNCTION__, conf->device, strerror(errno));
 		close(fd);
 		return CSP_ERR_DRIVER;
+	}
+
+	if (!default_baudrate) {
+		ioctl(fd, TCGETS2, &options);
+        csp_log_warn("%s: Using non-default baudrate: %u, (actual baudrate %d)",
+                     __FUNCTION__, conf->baudrate, options.c_ospeed);
 	}
 
 	usart_context_t * ctx = calloc(1, sizeof(*ctx));
