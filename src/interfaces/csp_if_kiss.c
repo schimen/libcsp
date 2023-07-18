@@ -21,6 +21,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include <csp/interfaces/csp_if_kiss.h>
 
 #include <string.h>
+#include <unistd.h>
 
 #include <csp/csp_endian.h>
 #include <csp/csp_crc32.h>
@@ -58,6 +59,9 @@ int csp_kiss_tx(const csp_route_t * ifroute, csp_packet_t * packet) {
 	// Create output buffer for packet and add bytes
 	unsigned int buffer_length = 0;
 	unsigned char output_buffer[300];
+	output_buffer[0] = start[0];
+	output_buffer[1] = start[1];
+	buffer_length += 2;
 	for (unsigned int i = 0; i < packet->length; i++, ++data) {
 		output_buffer[buffer_length] = *data;
 		buffer_length++;
@@ -70,16 +74,20 @@ int csp_kiss_tx(const csp_route_t * ifroute, csp_packet_t * packet) {
 			buffer_length++;
 		}
 	}
-	ifdata->tx_func(driver, start, sizeof(start));
+	output_buffer[buffer_length] = stop[0];
+	output_buffer[buffer_length+1] = stop[1];
+	buffer_length += 2;
+
+	// Transmit output buffer
 	unsigned int transmit_len;
 	unsigned int buffer_location = 0;
-	const unsigned int max_byte_transfer = 1024;
+	const unsigned int max_byte_transfer = 128;
 	while (buffer_location < buffer_length) {
 		transmit_len = buffer_length - buffer_location > max_byte_transfer ? max_byte_transfer : buffer_length - buffer_location;
 		ifdata->tx_func(driver, &output_buffer[buffer_location], transmit_len);
 		buffer_location += transmit_len;
+		usleep(1000);
 	}
-	ifdata->tx_func(driver, stop, sizeof(stop));
 
 	/* Free data */
 	csp_buffer_free(packet);
