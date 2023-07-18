@@ -49,24 +49,37 @@ int csp_kiss_tx(const csp_route_t * ifroute, csp_packet_t * packet) {
 	packet->length += sizeof(packet->id.ext);
 
 	/* Transmit data */
-        const unsigned char start[] = {FEND, TNC_DATA};
-        const unsigned char esc_end[] = {FESC, TFEND};
-        const unsigned char esc_esc[] = {FESC, TFESC};
-        const unsigned char * data = (unsigned char *) &packet->id.ext;
-        ifdata->tx_func(driver, start, sizeof(start));
+	const unsigned char start[] = {FEND, TNC_DATA};
+	const unsigned char esc_end[] = {FESC, TFEND};
+	const unsigned char esc_esc[] = {FESC, TFESC};
+	const unsigned char stop[] = {FEND};
+	const unsigned char * data = (unsigned char *) &packet->id.ext;
+
+	// Create output buffer for packet and add bytes
+	unsigned int buffer_length = 0;
+	unsigned char output_buffer[300];
 	for (unsigned int i = 0; i < packet->length; i++, ++data) {
+		output_buffer[buffer_length] = *data;
+		buffer_length++;
 		if (*data == FEND) {
-                    ifdata->tx_func(driver, esc_end, sizeof(esc_end));
-                    continue;
+			output_buffer[buffer_length] = esc_end[1];
+			buffer_length++;
 		}
-                if (*data == FESC) {
-                    ifdata->tx_func(driver, esc_esc, sizeof(esc_esc));
-                    continue;
+		else if (*data == FESC) {
+			output_buffer[buffer_length] = esc_esc[1];
+			buffer_length++;
 		}
-		ifdata->tx_func(driver, data, 1);
 	}
-        const unsigned char stop[] = {FEND};
-        ifdata->tx_func(driver, stop, sizeof(stop));
+	ifdata->tx_func(driver, start, sizeof(start));
+	unsigned int transmit_len;
+	unsigned int buffer_location = 0;
+	const unsigned int max_byte_transfer = 1024;
+	while (buffer_location < buffer_length) {
+		transmit_len = buffer_length - buffer_location > max_byte_transfer ? max_byte_transfer : buffer_length - buffer_location;
+		ifdata->tx_func(driver, &output_buffer[buffer_location], transmit_len);
+		buffer_location += transmit_len;
+	}
+	ifdata->tx_func(driver, stop, sizeof(stop));
 
 	/* Free data */
 	csp_buffer_free(packet);
