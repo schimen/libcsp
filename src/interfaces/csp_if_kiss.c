@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include <csp/csp_endian.h>
 #include <csp/csp_crc32.h>
+#include <csp/arch/csp_malloc.h>
 
 #define FEND  		0xC0
 #define FESC  		0xDB
@@ -48,44 +49,52 @@ int csp_kiss_tx(const csp_route_t * ifroute, csp_packet_t * packet) {
 	packet->id.ext = csp_hton32(packet->id.ext);
 	packet->length += sizeof(packet->id.ext);
 
-	/* Transmit data */
+	// CSP KISS protocol constants
 	const unsigned char start[] = {FEND, TNC_DATA};
 	const unsigned char esc_end[] = {FESC, TFEND};
 	const unsigned char esc_esc[] = {FESC, TFESC};
 	const unsigned char stop[] = {FEND};
+
+	// Pointer to data that will be transmitted
 	const unsigned char * data = (unsigned char *) &packet->id.ext;
 
-	// Create output buffer for packet and add bytes
+	// Create output buffer for KISS transmission
 	unsigned int buffer_length = 0;
-	unsigned char output_buffer[400];
+	unsigned char *buffer = csp_malloc(2*packet->length + sizeof(start) + sizeof(stop));
+	if (buffer == NULL) {
+		csp_log_error("Failed to allocate memory for KISS output buffer");
+		return CSP_ERR_NOMEM;
+	}
+
 	// Add start of frame
-	output_buffer[0] = start[0];
-	output_buffer[1] = start[1];
-	buffer_length += 2;
+	memcpy(buffer, start, sizeof(start));
+	buffer_length += sizeof(start);
+
+	// Add all data to buffer, and add escape characters for FEND and FESC
 	for (unsigned int i = 0; i < packet->length; i++, ++data) {
 		if (*data == FEND) { // Escape FEND character
-			output_buffer[buffer_length] = esc_end[0];
-			output_buffer[buffer_length+1] = esc_end[1];
-			buffer_length += 2;
+			memcpy(&buffer[buffer_length], esc_end, sizeof(esc_end));
+			buffer_length += sizeof(esc_end);
 		}
 		else if (*data == FESC) { // Escape FESC character
-			output_buffer[buffer_length] = esc_esc[0];
-			output_buffer[buffer_length+1] = esc_esc[1];
-			buffer_length += 2;
+			memcpy(&buffer[buffer_length], esc_end, sizeof(esc_esc));
+			buffer_length += sizeof(esc_esc);
 		}
 		else { // Add normal data to buffer
-			output_buffer[buffer_length] = *data;
+			buffer[buffer_length] = *data;
 			buffer_length++;
 		}
 	}
+
 	// Add end of frame
-	output_buffer[buffer_length] = stop[0];
-	buffer_length++;
+	memcpy(&buffer[buffer_length], stop, sizeof(stop));
+	buffer_length += sizeof(stop);
 
 	// Transmit output buffer
-	ifdata->tx_func(driver, output_buffer, buffer_length);
+	ifdata->tx_func(driver, buffer, buffer_length);
 
 	/* Free data */
+	csp_free(buffer);
 	csp_buffer_free(packet);
 
 	/* Unlock */
