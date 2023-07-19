@@ -203,6 +203,7 @@ int csp_usart_open(const csp_usart_conf_t *conf, csp_usart_callback_t rx_callbac
 		case 3000000: break;
 		case 3500000: break;
 		case 4000000: break;
+		case 6250000: break;
 		default:
 			csp_log_warn("%s: Using non-default baudrate: %u", __FUNCTION__, conf->baudrate);
 	}
