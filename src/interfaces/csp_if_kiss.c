@@ -77,7 +77,7 @@ int csp_kiss_tx(const csp_route_t * ifroute, csp_packet_t * packet) {
 			buffer_length += sizeof(esc_end);
 		}
 		else if (*data == FESC) { // Escape FESC character
-			memcpy(&buffer[buffer_length], esc_end, sizeof(esc_esc));
+			memcpy(&buffer[buffer_length], esc_esc, sizeof(esc_esc));
 			buffer_length += sizeof(esc_esc);
 		}
 		else { // Add normal data to buffer
